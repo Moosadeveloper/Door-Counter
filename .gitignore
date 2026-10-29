@@ -1,0 +1,25 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+.env.*
+
+# Attendance database
+*.db
+*.sqlite
+*.sqlite3
+
+# Private face data and alerts
+backend/data/
+backend/registry/
+backend/uploads/*
+
+# Generated files
+.DS_Store
+Thumbs.db

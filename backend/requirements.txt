@@ -1,0 +1,17 @@
+# Web server
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+
+# Computer vision (all free)
+# opencv-python >= 4.8 already contains the face detector (YuNet) and the
+# face recogniser (SFace). You do NOT need opencv-contrib-python.
+opencv-python>=4.8
+ultralytics>=8.1          # YOLOv8 + ByteTrack (installs PyTorch too)
+numpy
+pandas
+
+# Browser-playable (H.264) output video. Ships its own ffmpeg, nothing to install.
+imageio-ffmpeg
+
+# Attendance database = SQLite (built into Python, nothing extra to install)

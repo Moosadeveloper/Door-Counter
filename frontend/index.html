@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doorlog - smart attendance</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Doorlog</h1>
+      <p>Smart attendance: the camera recognises registered people, records when they came in and went out, and flags anyone it does not know or whose face is hidden.</p>
+    </div>
+    <div class="top-side">
+      <div id="health" class="health" role="status" aria-live="polite"></div>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Sections">
+    <div class="tabs-in" role="tablist">
+      <button class="tab" role="tab" type="button" data-tab="live" id="tabbtn-live">Live camera</button>
+      <button class="tab" role="tab" type="button" data-tab="attendance" id="tabbtn-attendance">Attendance</button>
+      <button class="tab" role="tab" type="button" data-tab="people" id="tabbtn-people">People</button>
+      <button class="tab" role="tab" type="button" data-tab="alerts" id="tabbtn-alerts">Alerts <span class="count" id="alertCount" hidden></span></button>
+      <button class="tab" role="tab" type="button" data-tab="video" id="tabbtn-video">Video analysis</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ================= LIVE CAMERA ================= -->
+    <section class="panel" id="tab-live" role="tabpanel" aria-labelledby="tabbtn-live" hidden>
+      <div class="msg" id="liveMsg" role="alert" hidden></div>
+      <div class="live-grid">
+        <div>
+          <div class="monitor live-monitor" id="liveMonitor">
+            <img id="liveImg" alt="Live camera with recognised people marked">
+            <div class="monitor-empty" id="liveEmpty">
+              <b>Camera is off</b>
+              <span>Choose a camera on the right and press Start.</span>
+            </div>
+          </div>
+          <p class="fine" id="liveInfo"></p>
+          <div class="legend-row">
+            <span><i class="sw sw-ok"></i>Registered - name shown, attendance marked</span>
+            <span><i class="sw sw-bad"></i>Unknown face - alert</span>
+            <span><i class="sw sw-warn"></i>Face hidden - alert</span>
+            <span><i class="sw sw-wait"></i>Checking</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <h2>Camera</h2>
+          <label class="field">
+            <span>Where do the pictures come from?</span>
+            <select id="srcKind">
+              <option value="cctv">CCTV camera (DVR / NVR / IP camera)</option>
+              <option value="video">Uploaded video (test without a camera)</option>
+              <option value="0">Laptop / built-in webcam</option>
+              <option value="1">USB camera (second camera)</option>
+            </select>
+          </label>
+
+          <div id="cctvBox" hidden>
+            <label class="field"><span>CCTV brand</span>
+              <select id="ccBrand">
+                <option value="hikvision">Hikvision / HiLook</option>
+                <option value="dahua">Dahua / CP Plus / Imou</option>
+                <option value="custom">Other brand - I will type the full RTSP address</option>
+              </select></label>
+            <div id="ccParts">
+              <div class="two">
+                <label class="field"><span>IP address</span><input type="text" id="ccIp" placeholder="192.168.1.64" autocomplete="off" spellcheck="false"></label>
+                <label class="field"><span>RTSP port</span><input type="text" id="ccPort" value="554" inputmode="numeric" autocomplete="off"></label>
+                <label class="field"><span>User name</span><input type="text" id="ccUser" value="admin" autocomplete="off" spellcheck="false"></label>
+                <label class="field"><span>Password</span><input type="password" id="ccPass" autocomplete="new-password"></label>
+                <label class="field"><span>Channel</span><input type="text" id="ccCh" value="1" inputmode="numeric" autocomplete="off"></label>
+                <label class="field"><span>Quality</span>
+                  <select id="ccQ"><option value="sub">Sub stream (faster - recommended)</option><option value="main">Main stream (sharper, slower)</option></select></label>
+              </div>
+              <p class="fine">Channel = camera number on the DVR/NVR (1, 2, 3 ...). For a single IP camera use 1.
+                The computer must be on the same network (router / Wi-Fi) as the DVR.</p>
+            </div>
+            <label class="field" id="ccCustomField" hidden><span>Full RTSP address</span>
+              <input type="text" id="srcUrl" placeholder="rtsp://admin:password@192.168.1.64:554/..." autocomplete="off" spellcheck="false"></label>
+            <p class="fine mono" id="ccPreview"></p>
+            <button id="ccTest" class="secondary wide" type="button">Test connection</button>
+            <div class="monitor small" id="ccTestWrap" hidden><img id="ccTestImg" alt="Picture from the CCTV camera" style="display:block;width:100%"></div>
+          </div>
+          <label class="field" id="srcVideoField" hidden>
+            <span>Video</span>
+            <select id="srcVideo"></select>
+            <small class="fine">Upload the video on the Video analysis page first. It plays at normal speed like a real camera, and attendance is saved with today's time.</small>
+          </label>
+          <label class="field">
+            <span>Camera name</span>
+            <input type="text" id="camName" value="Main gate" maxlength="40">
+          </label>
+
+          <fieldset class="field modes">
+            <legend>What does this camera do?</legend>
+            <label class="check"><input type="radio" name="mode" value="entry" checked>
+              <span><b>Entry camera</b> - faces people coming in. Recognised = checked IN.</span></label>
+            <label class="check"><input type="radio" name="mode" value="exit">
+              <span><b>Exit camera</b> - faces people going out. Recognised = checked OUT.</span></label>
+            <label class="check"><input type="radio" name="mode" value="door">
+              <span><b>Door line</b> - one camera sees both sides of the door. Direction decides IN or OUT.</span></label>
+          </fieldset>
+
+          <div id="doorBox" hidden>
+            <button id="probeBtn" class="secondary wide" type="button">Take a picture to draw the door line</button>
+            <div class="monitor small" id="lineWrap" hidden><canvas id="lineCanvas" aria-label="Camera picture. Click two points to draw the door line."></canvas></div>
+            <p class="fine" id="lineHint" hidden>Click two points across the doorway (drag the dots to adjust). The arrow points INSIDE.</p>
+            <button id="lineFlip" class="secondary wide" type="button" hidden>Swap inside and outside</button>
+          </div>
+
+          <button id="liveStart" class="primary" type="button">Start camera</button>
+          <button id="liveStop" class="secondary wide" type="button" hidden>Stop camera</button>
+        </div>
+      </div>
+
+      <section class="section">
+        <div class="split-head">
+          <h2>Just now</h2>
+          <p class="fine" id="presentLine"></p>
+        </div>
+        <ol class="feed" id="liveFeed"><li class="empty">Nothing yet. Recognitions and alerts appear here.</li></ol>
+      </section>
+    </section>
+
+    <!-- ================= ATTENDANCE ================= -->
+    <section class="panel" id="tab-attendance" role="tabpanel" aria-labelledby="tabbtn-attendance" hidden>
+      <div class="msg" id="attMsg" role="alert" hidden></div>
+      <div class="toolbar">
+        <label class="field inline"><span>Day</span><input type="date" id="attDay"></label>
+        <label class="field inline"><span>Show</span>
+          <select id="attFilter"><option value="all">Everyone</option><option value="present">Present</option>
+            <option value="absent">Absent</option><option value="inside">Inside now</option></select></label>
+        <label class="field inline grow"><span>Search</span><input type="search" id="attSearch" placeholder="Name or roll number"></label>
+        <a class="secondary btnlink" id="attCsv" href="/api/attendance.csv" download>Download CSV</a>
+      </div>
+      <div class="counters four" id="attCounters"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Person</th><th>Roll no.</th><th>Status</th><th>Came in</th><th>Went out</th>
+          <th class="num">Time inside</th><th>Camera</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody id="attRows"></tbody></table></div>
+      <details class="section log">
+        <summary>Every in / out event this day</summary>
+        <ol class="feed" id="attLog"></ol>
+      </details>
+    </section>
+
+    <!-- ================= PEOPLE ================= -->
+    <section class="panel" id="tab-people" role="tabpanel" aria-labelledby="tabbtn-people" hidden>
+      <div class="msg" id="pplMsg" role="alert" hidden></div>
+      <div class="reg-grid">
+        <form id="regForm" class="reg-form" novalidate>
+          <h2>Register a person</h2>
+          <p class="fine">Add 3 photos: face straight, head turned left, head turned right (about 30-45 degrees, not a full side view). Good light, no mask or sunglasses. More photos = better recognition.</p>
+          <div class="two">
+            <label class="field"><span>Full name</span><input type="text" id="regName" required maxlength="80" autocomplete="off"></label>
+            <label class="field"><span>Roll no. / ID</span><input type="text" id="regRoll" required maxlength="40" autocomplete="off"></label>
+            <label class="field"><span>Role</span>
+              <select id="regRole"><option>Student</option><option>Teacher</option><option>Staff</option><option>Visitor</option><option>Other</option></select></label>
+            <label class="field"><span>Class / department</span><input type="text" id="regDept" maxlength="60" autocomplete="off"></label>
+          </div>
+
+          <div class="slots" id="slots"></div>
+          <label class="field"><span>More photos (optional)</span>
+            <input type="file" id="regExtra" accept="image/*" multiple></label>
+
+          <div class="cam-box" id="camBox" hidden>
+            <div class="monitor small"><video id="camVideo" autoplay playsinline muted></video></div>
+            <p class="hint" id="camHint"></p>
+            <div class="btn-row">
+              <button class="primary" type="button" id="camSnap">Take photo</button>
+              <button class="secondary" type="button" id="camClose">Close webcam</button>
+            </div>
+          </div>
+
+          <button class="primary" type="submit" id="regSubmit">Register</button>
+          <div id="regNotes"></div>
+        </form>
+
+        <div>
+          <div class="split-head">
+            <h2>Registered <span id="pplCount" class="muted"></span></h2>
+            <input type="search" id="pplSearch" placeholder="Search" aria-label="Search registered people">
+          </div>
+          <div class="people" id="pplList"></div>
+          <input type="file" id="addPhotosInput" accept="image/*" multiple hidden>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ALERTS ================= -->
+    <section class="panel" id="tab-alerts" role="tabpanel" aria-labelledby="tabbtn-alerts" hidden>
+      <div class="msg" id="alMsg" role="alert" hidden></div>
+      <div class="toolbar">
+        <label class="field inline"><span>Day</span><input type="date" id="alDay"></label>
+        <label class="check inline-check"><input type="checkbox" id="alOpenOnly"><span>Only not yet checked</span></label>
+      </div>
+      <p class="fine">An <b>Unknown person</b> alert means the face was clearly visible but matches nobody registered.
+        <b>Face hidden</b> means the person came in without the camera ever seeing their face (mask, cap, turned away, covered).</p>
+      <div class="alerts" id="alList"></div>
+    </section>
+
+    <!-- ================= VIDEO ANALYSIS (original door counter) ================= -->
+    <section class="panel" id="tab-video" role="tabpanel" aria-labelledby="tabbtn-video" hidden>
+    <div class="panel-head">
+      <p class="fine">Analyse a recorded video: who came in, who left, how long they stayed. Registered people are shown by name.</p>
+      <button id="restart" class="ghost" type="button" hidden>Choose another video</button>
+    </div>
+    <div id="alert" class="alert" role="alert" hidden></div>
+
+    <!-- 1. upload -->
+    <section id="step-upload" class="stage" aria-labelledby="h-upload">
+      <h2 id="h-upload">Choose a video</h2>
+      <label class="drop" id="drop" for="file">
+        <span class="drop-title">Drop a video here, or choose a file</span>
+        <span class="drop-sub">MP4, MOV, AVI, MKV or WebM. Footage of the entrance works best.</span>
+        <span class="bar" id="uploadBar" hidden><span class="bar-fill" id="uploadFill"></span></span>
+        <span class="drop-sub" id="uploadText" hidden></span>
+      </label>
+      <input class="sr-only" id="file" type="file" accept="video/*,.mkv">
+    </section>
+
+    <!-- 2. mark the door -->
+    <section id="step-door" class="stage" aria-labelledby="h-door" hidden>
+      <h2 id="h-door">Mark the door</h2>
+      <div class="door-grid">
+        <div>
+          <div class="monitor"><canvas id="doorCanvas" aria-label="First frame of the video. Click to draw the door line."></canvas></div>
+          <p class="fine" id="videoMeta"></p>
+        </div>
+        <div class="controls">
+          <p id="doorHint" class="hint">Drag either yellow dot onto the doorway.</p>
+          <p class="fine">A starting line is already on the screen - just drag its two yellow dots so the line sits exactly across the doorway. The yellow arrow shows which side is counted as INSIDE; click "Swap inside and outside" if it is pointing the wrong way. Use the preset buttons if the doorway is closer to horizontal.</p>
+
+          <div class="btn-row">
+            <button id="presetV" class="secondary" type="button">Vertical line in the middle</button>
+            <button id="presetH" class="secondary" type="button">Horizontal line in the middle</button>
+          </div>
+          <div class="btn-row">
+            <button id="flipBtn" class="secondary" type="button" disabled>Swap inside and outside</button>
+            <button id="clearBtn" class="secondary" type="button" disabled>Clear line</button>
+          </div>
+
+          <label class="field">
+            <span>Detail</span>
+            <select id="stride">
+              <option value="1">Every frame (most accurate)</option>
+              <option value="2">Every 2nd frame (faster)</option>
+              <option value="3">Every 3rd frame (fastest)</option>
+            </select>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="useFaces" checked>
+            <span>Recognise faces so each person keeps the same ID</span>
+          </label>
+          <p class="fine" id="faceNote" hidden></p>
+
+          <label class="check">
+            <input type="checkbox" id="useCapacity">
+            <span>Warn if the room goes over a capacity limit</span>
+          </label>
+          <label class="field" id="capacityField" hidden>
+            <span>Maximum people allowed inside</span>
+            <input type="number" id="capacity" min="1" max="1000" step="1" value="20" inputmode="numeric">
+          </label>
+
+          <button id="analyzeBtn" class="primary" type="button" disabled>Analyze video</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. progress -->
+    <section id="step-progress" class="stage" aria-labelledby="h-progress" hidden>
+      <h2 id="h-progress">Analyzing the video</h2>
+      <div class="bar bar-lg" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressBar">
+        <span class="bar-fill" id="progressFill"></span>
+      </div>
+      <p class="hint" id="progressText">Starting</p>
+      <p class="fine">Long videos can take several minutes on a laptop. You can leave this page open and come back.</p>
+    </section>
+
+    <!-- 4. results (filled in by app.js) -->
+    <section id="step-results" hidden aria-live="polite"></section>
+    </section>
+  </main>
+
+  <noscript><p class="alert">Doorlog needs JavaScript to run.</p></noscript>
+  <script src="/static/app.js"></script>
+  <script src="/static/institution.js"></script>
+</body>
+</html>
